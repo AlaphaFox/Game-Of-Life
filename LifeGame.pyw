@@ -1,114 +1,88 @@
 import tkinter as tk
-import numpy as np
-import random as rd
-from tkinter import simpledialog as inputclass
-from tkinter import messagebox as mb
-from webbrowser import open as owp
-global url
-url = "https://github.com/AlaphaFox/Game-Of-Life"
-def datainfo():
-    rst = tk.Tk()
-    rst.title("AlaphaFox生命游戏")
-    A1 = tk.Label(rst,text = "AlaphaFox编写",font = 'Arial')
-    A1.pack()
-    A2 = tk.Label(rst,text = "基于Python 3.10.11")
-    A2.pack()
-    B1 = tk.Label(rst,text ="Github:")
-    B1.pack()
-    B2 = tk.Button(rst,text = "前往",command = lambda:owp(url))
-    B2.pack()
+import tkinter.messagebox
+import threading
+import copy
+
+ROWS = 100 #设置网格行数
+COLS = 100 #设置网格列数
+SPACE = 40 #设置格子边长
+root = tk.Tk() 
+root.title('生命游戏')
+root.geometry('{}{}{}'.format(ROWS*10,'x',COLS*10)) 
+list_live = [[0 for i in range(ROWS)] for j in range(COLS)] #设置初始生命体存活情况
+isSetOver = False #当点击(0,0)格子 就开启元胞自动机
+a1 = tk.Canvas(root,width=ROWS*10,height = COLS*10)
+
+def drawMap(): #根据元胞的状态进行绘图 用数组状态表示存活状态 1为存活 2为死亡
+    global list_live
+    global a1
+    for i in range(ROWS):
+        for j in range(COLS):
+            if list_live[i][j] == 0:
+                a1.create_rectangle(i*SPACE,j*SPACE,i*SPACE+SPACE, j*SPACE+SPACE,fill='black',outline='grey',width=3)
+            else:
+                a1.create_rectangle(i*SPACE,j*SPACE,i*SPACE+SPACE, j*SPACE+SPACE,fill='white',outline='grey',width=3)
+
+def callback(event): #回调函数 用于实时捕捉鼠标左键状态 获取鼠标所在的坐标
+    global isSetOver
+    global list_live
+    x = event.x / SPACE
+    y = event.y / SPACE
+    i = int(x)
+    j = int(y)
+    # print (i,j)
+    if isSetOver == False: #isSetOver为false 说明还没有设置完成 将继续设置
+        list_live[i][j] = 1
+        a1.create_rectangle(i*SPACE,j*SPACE,i*SPACE+SPACE, j*SPACE+SPACE,fill='white',outline='grey',width=3)
+        if i == 0 and j == 0: 
+            isSetOver = True
+            
+    
+
+a1.bind("<Button-1>",callback)#将鼠标左键与回调函数绑定
 
 
-class GameOfLife():
-    def __init__(self):
-        self.name = '生命游戏 - AlaphaFox Python实机'
-        self.width = 500
-        self.height = 450
-        self.window = tk.Tk()
-        self.window.title(self.name)
-        self.window.geometry('{}x{}'.format(self.width, self.height))
-        self.canvas = tk.Canvas(self.window, bg='white', width=self.width-100, height=self.height-50 )
-        self.array = np.zeros((int((self.width-100)/20), int((self.height-50)/20)), dtype=int)
-        self.start_btn=tk.Button(self.window,bg='gray',text='启动',command=self.start)
-        self.pause_btn=tk.Button(self.window,bg='gray',text='暂停',command=self.pause)
-        self.refresh_btn=tk.Button(self.window,bg='gray',text='重置',command=self.restart)
-        self.quit_btn=tk.Button(self.window,bg='gray',text='关于',command=datainfo)
-            #   设置暂停标志
-        self.flag=5
-            #   设置start次数，防止加速
-        self.count=0
-    def input_number(self):
-        self.number = 20
-    def pack(self):
-        self.canvas.pack()
-        self.start_btn.place(x=10,y=410,anchor='nw')
-        self.pause_btn.place(x=150,y=410,anchor='nw')
-        self.refresh_btn.place(x=290,y=410,anchor='nw')
-        self.quit_btn.place(x=430, y=410, anchor='nw')
 
-    def init_cells(self):
-        count = 0
-        #   随机产生细胞
-        for x in range(len(self.array)):
-            for y in range(len(self.array[x])):
-                if count > 200:
-                    return
-                if rd.randint(0, 100) >= 50:
-                    self.array[x][y] = 1
-                    count += 1
-    def draw(self):
-            #   画图
-        for i in range(len(self.array)):
-            for j in range(len(self.array[i])):
-                if self.array[i][j]==1:
-                    self.canvas.create_rectangle(j*20,i*20,j*20+20,i*20+20,fill='blue')
-                else:
-                    self.canvas.create_rectangle(j * 20, i * 20, j * 20 + 20, i * 20 + 20, fill='white')
+# rect = a1.create_rectangle(0,0,10,10,fill='black',outline='grey',width=3)
+drawMap() #初始化细胞存活图
+tk.messagebox.showinfo('提示',"规则1：如果细胞周围有3个存活的细胞 存活\n规则2：如果细胞周围有2个存活的细胞 维持不变\n规则3：其他情况 死亡\n点击(0,0)坐标结束设置并开启自动机")
 
-    def start(self):
-        if self.flag==1:
-            return
-        self.flag=1
-        self.refresh()
+a1.pack()
 
-    def pause(self):
-        self.flag=0
+def getRoundLive(i,j): #获取该坐标细胞周围八个位置的邻居存活状态
+    num = 0
+    global list_live
+    
+    if i > 0 and j > 0 and  list_live[i - 1][j - 1]==1: num += 1
+    if i > 0 and list_live[i-1][j]==1: num += 1
+    if i > 0 and  j < COLS - 1 and  list_live[i - 1][j +1]==1: num += 1
+    if j > 0 and   list_live[i][j - 1]==1: num += 1
+    if j<COLS-1 and  list_live[i][j + 1]==1: num += 1 
+    if j > 0 and  i < ROWS - 1 and  list_live[i+ 1][j - 1]==1: num += 1
+    if i <ROWS -1 and  list_live[i + 1][j]==1: num += 1
+    if i < ROWS - 1 and  j < COLS - 1 and  list_live[i +1][j+1]==1: num += 1
+    
+    return num #返回存活邻居数量
 
-    def refresh(self):
-        if self.flag==1:
-            for i in range(1, len(self.array) - 1):
-                for j in range(1, len(self.array[i]) - 1):
-                    sum = self.array[i][j - 1] + self.array[i - 1][j - 1] + self.array[i - 1][j] + self.array[i - 1][
-                        j + 1] + self.array[i][j + 1] + self.array[i + 1][j + 1] + self.array[i + 1][j] + self.array[i + 1][ j - 1]
+def life_week(): 
+    num = 0
+    global list_live
+    list_now = [[0 for i in range(ROWS)] for j in range(COLS)]
+    for i in range(ROWS):
+        for j in range(COLS):
+            num = getRoundLive(i,j) #获取邻居存活个数 以判断自身下一时刻的状态
+            if 3==num: list_now[i][j] = 1
+            elif 2 == num: list_now[i][j] = list_live[i][j]
+            else: list_now[i][j] = 0
+    
+    list_live = copy.deepcopy(list_now) #将下一时刻的存活状态进行复制
+            
+def my_mainloop():
+    root.after(1000, my_mainloop)
+    if isSetOver: 
+        life_week() #获取下一时刻的元胞存货状态
+        drawMap()   #绘图
 
-                        # 活细胞
-                    if self.array[i][j] == 1:
-                        if sum != 2 and sum != 3:
-                            self.array[i][j] = 0
-
-                    else:  # 死细胞
-                        if sum == 3:
-                            self.array[i][j] = 1
-            self.draw()
-            self.canvas.after(1000, self.refresh)
-        else:
-            return
-
-    def restart(self):
-        self.flag=0
-        self.init_cells()
-        self.start()
-
-
-    def show(self):
-        self.canvas.mainloop()
-
-
-if __name__ == '__main__':
-    mb.showinfo("Tips:","即将开始随机实机运行")
-    game1 = GameOfLife()
-    game1.input_number()
-    game1.pack()
-    game1.init_cells()
-    game1.draw()
-    game1.show()
+root.after(100,my_mainloop()) #注册回调函数
+root.mainloop()
+#The Second Edition
